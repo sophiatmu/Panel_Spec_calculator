@@ -9,7 +9,7 @@ import sys
 # 打开工作簿和工作表
 # wb = load_workbook('D://Muyun//cal_python//X098_v3_0927.xlsx')
 wb = openpyxl.load_workbook('X098_v5.xlsm')
-save_wb = 'D://Muyun//cal_python//X098_v5_0606.xlsx'
+save_wb = 'D://Muyun//cal_python//X098_v5_0619.xlsx'
 flag = np.zeros(3)#針對rgb duty>100做處理 平常為0
 
 def save_workbook():
@@ -39,11 +39,12 @@ def main_calculate_flow():
                 config.Color_Matching[row - row_start][col - col_start] = config.CIE_sheet.cell(row=row, column=col).value
 
         row_start,row_end,col_start,col_end = calculator.set_CFL()
-
-        # color_filter = np.array([[CFData_sheet.cell(row=row, column=col).value for col in range(col_start, col_end + 1)] for row in range(row_start, row_end + 1)])
-        for row in range(row_start, row_end + 1):
-            for col in range(col_start, col_end + 1):
-                config.color_filter[row - row_start][col - col_start] = config.CFData_sheet.cell(row=row, column=col).value
+        if row_start == 0:
+            config.color_filter[:][:] = 1
+        else:
+            for row in range(row_start, row_end + 1):
+                for col in range(col_start, col_end + 1):
+                    config.color_filter[row - row_start][col - col_start] = config.CFData_sheet.cell(row=row, column=col).value
         # ------------------------------------------------------------
         # 尋找voltage
         # 原始matrixCIE位址

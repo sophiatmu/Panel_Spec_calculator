@@ -120,7 +120,15 @@ class MaxCurrentMaxYieldCalculator:
             config.CFL[1] = 0.86
             config.CFL[2] = 0.81
             return row_start, row_end, col_start, col_end
-
+        elif config.home_sheet.cell(row=9, column=10).value == "No":
+            row_start = 0
+            row_end = 200
+            col_start = 20
+            col_end = 22
+            config.CFL[0] = 1
+            config.CFL[1] = 1
+            config.CFL[2] = 1
+            return row_start, row_end, col_start, col_end
     def get_matrixCIE_ratio(self):
 
         for i in range(3):
