@@ -157,6 +157,48 @@ class MaxCurrentMaxYieldCalculator:
             config.MatrixRGB[1, i] = 1
             config.MatrixRGB[2, i] = temp3 / temp2
 
+    def get_middle_data(self,i,panel_Nits):
+        for j in range(100):
+            cell_value = config.opticals[i][j, 3]
+            next_cell_value = config.opticals[i][j + 1, 3]
+            next = j
+            if (cell_value == panel_Nits[i]):
+                cal_yield = config.opticals[i][j, 2]
+                cal_current = config.opticals[i][j, 1]
+                cal_voltage = config.opticals[i][j, 0]
+            elif (cell_value < panel_Nits[i] < next_cell_value):
+                x1 = config.opticals[i][j, 2]
+                x2 = config.opticals[i][j + 1, 2]
+                cal_yield = x1 + (x2 - x1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
+                y1 = config.opticals[i][j, 1]
+                y2 = config.opticals[i][j + 1, 1]
+                cal_current = y1 + (y2 - y1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
+                z1 = config.opticals[i][j, 0]
+                z2 = config.opticals[i][j + 1, 0]
+                cal_voltage = z1 + (z2 - z1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
+                break
+            elif panel_Nits[i] > np.max(config.opticals[i][:, 3]):
+                print("~~~~error：電流計算結果超過 Optical Data 範圍~~~")
+                sys.exit()
+
+        return cal_yield,cal_current,cal_voltage,next
+
+    def update_3_data(self,i,cal_yield,cal_current,cal_voltage,panel_Nits,next):
+
+        config.opticals[i][next + 2:, :] = config.opticals[i][next + 1:-1, :]  # 全部下移
+        config.opticals[i][next + 1, 0] = cal_voltage
+        config.opticals[i][next + 1, 1] = cal_current
+        config.opticals[i][next + 1, 2] = cal_yield
+        config.opticals[i][next + 1, 3] = panel_Nits[i]
+
+        config.matrix_max_table[0, i] = panel_Nits[i]
+        config.matrix_max_table[1, i] = cal_current
+        config.matrix_max_table[2, i] = cal_current
+        config.matrix_max_table[3, i] = cal_yield
+        config.matrix_max_table[4, i] = cal_voltage
+        config.matrix_max_table[5, i] = config.dutyRGB[i]
+
+
     def overduty(self,panel_Nits,dutyRGB,flag,save_wb):
         dutyRGB = config.dutyRGB
 
@@ -167,31 +209,13 @@ class MaxCurrentMaxYieldCalculator:
                                                 config.dutyRGB[i] * config.Beta[i] *
                                                 config.Number[i] * config.CPL * config.Efficiency[i] * config.CFL[i]) / (
                                                            config.PixelSize * 10 ** (-6)) ** 2
-                for j in range(100):
-                    cell_value = config.opticals[i][j, 3]
-                    next_cell_value = config.opticals[i][j + 1, 3]
-                    next = j
-                    # print(np.max(config.opticals[i][:, 3]))
-                    if (cell_value < panel_Nits[i] < next_cell_value):
-                        x1 = config.opticals[i][j, 2]
-                        x2 = config.opticals[i][j + 1, 2]
-                        cal_yield = x1 + (x2 - x1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                        y1 = config.opticals[i][j, 1]
-                        y2 = config.opticals[i][j + 1, 1]
-                        cal_current = y1 + (y2 - y1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                        z1 = config.opticals[i][j, 0]
-                        z2 = config.opticals[i][j + 1, 0]
-                        cal_voltage = z1 + (z2 - z1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                        break
-                    elif panel_Nits[i] > np.max(config.opticals[i][:, 3]):
-                        print("~~~~error：電流計算結果超過 Optical Data 範圍~~~")
-                        sys.exit()
 
-                config.opticals[i][next + 2:, :] = config.opticals[i][next + 1:-1, :]  # 全部下移
-                config.opticals[i][next + 1, 0] = cal_voltage
-                config.opticals[i][next + 1, 1] = cal_current
-                config.opticals[i][next + 1, 2] = cal_yield
-                config.opticals[i][next + 1, 3] = panel_Nits[i]
+                # --------------------------------------------
+                # panel_Nits 內插 voltage current yield
+                # ---------------------------------------------
+                cal_yield,cal_current,cal_voltage,next = self.get_middle_data(i,panel_Nits)
+
+                self.update_3_data(i, cal_yield, cal_current, cal_voltage, panel_Nits,next)
                 # --------------------------------------------
                 # 更新matrix
                 # ---------------------------------------------
@@ -199,12 +223,6 @@ class MaxCurrentMaxYieldCalculator:
                 config.matrix[i, 1] = cal_current
                 config.matrix[i, 2] = cal_voltage
 
-                config.matrix_max_table[0, i] = panel_Nits[i]
-                config.matrix_max_table[1, i] = cal_current
-                config.matrix_max_table[2, i] = cal_current
-                config.matrix_max_table[3, i] = cal_yield
-                config.matrix_max_table[4, i] = cal_voltage
-                config.matrix_max_table[5, i] = config.dutyRGB[i]
             #--------------------------------------------------
             # 不用更新 config.matrix
             # --------------------------------------------------
@@ -243,51 +261,19 @@ class MaxCurrentMaxYieldCalculator:
 
             for i in range(3):
                 if flag[i] == 1:
-                    # --------------------------------
-                    # 算opticals 中的每個current,yield,voltage對應的各種panelNits 怕超出格子所以用110格
-                    # ---------------------------------
-                    for j in range(100):
-                        cell_value = config.opticals[i][j, 3]
-                        next_cell_value = config.opticals[i][j + 1, 3]
-                        next = j
-                        if (cell_value == panel_Nits[i]):
-                            cal_yield = config.opticals[i][j, 2]
-                            cal_current = config.opticals[i][j, 1]
-                            cal_voltage = config.opticals[i][j, 0]
-                        elif (cell_value < panel_Nits[i] < next_cell_value):
-                            x1 = config.opticals[i][j, 2]
-                            x2 = config.opticals[i][j + 1, 2]
-                            cal_yield = x1 + (x2 - x1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                            y1 = config.opticals[i][j, 1]
-                            y2 = config.opticals[i][j + 1, 1]
-                            cal_current = y1 + (y2 - y1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                            z1 = config.opticals[i][j, 0]
-                            z2 = config.opticals[i][j + 1, 0]
-                            cal_voltage = z1 + (z2 - z1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                            break
-                        elif panel_Nits[i] > np.max(config.opticals[i][:, 3]):
-                            print("~~~~error：電流計算結果超過 Optical Data 範圍~~~")
-                            sys.exit()
+                    # --------------------------------------------
+                    # panel_Nits 內插 voltage current yield
+                    # ---------------------------------------------
+                    cal_yield, cal_current, cal_voltage, next = self.get_middle_data(i, panel_Nits)
 
-                    config.opticals[i][next + 2:, :] = config.opticals[i][next + 1:-1, :]  # 全部下移
-                    config.opticals[i][next + 1, 0] = cal_voltage
-                    config.opticals[i][next + 1, 1] = cal_current
-                    config.opticals[i][next + 1, 2] = cal_yield
-                    config.opticals[i][next + 1, 3] = panel_Nits[i]
+                    self.update_3_data(i, cal_yield, cal_current, cal_voltage, panel_Nits, next)
                     # --------------------------------------------
                     # 更新matrix
                     # ---------------------------------------------
                     config.matrix[i, 0] = cal_yield
                     config.matrix[i, 1] = cal_current
                     config.matrix[i, 2] = cal_voltage
-                    # matrix_max_current[i] = float(cal_current)
-                    # if Grayscale == 16: # 每次R要跑一次 G要一次 B要一次 不能縮減
-                    config.matrix_max_table[0, i] = panel_Nits[i]
-                    config.matrix_max_table[1, i] = cal_current
-                    config.matrix_max_table[2, i] = cal_current
-                    config.matrix_max_table[3, i] = cal_yield
-                    config.matrix_max_table[4, i] = cal_voltage
-                    config.matrix_max_table[5, i] = config.dutyRGB[i]
+
                 #--------------------------------------------------
                 # 不用更新 config.matrix
                 # --------------------------------------------------
@@ -306,7 +292,6 @@ class MaxCurrentMaxYieldCalculator:
             panel_current = panel_current + config.dutyRGB[i] * config.Number[i] * config.Beta[i] * \
                             config.matrix[i, 1]
 
-            print(panel_current)
         panel_current = panel_current / 1000000 * config.VResolution * config.HResolution
         if config.PanelShape == "Circle":
             panel_current = panel_current * 3.1415926 / 4
@@ -346,56 +331,25 @@ class MaxCurrentMaxYieldCalculator:
                     # 算opticals 中的每個current,yield,voltage對應的各種panelNits 怕超出格子所以用110格
                     # ---------------------------------
                     if Iteration == 0:
-                        # -----------------------------------------------
                         # opticals只有第一次要重算
-                        # -----------------------------------------------
                         for j in range(110):
                             config.opticals[i][j, 3] = (config.opticals[i][j, 1] * 10 ** (-6) * config.opticals[i][j, 2] *
                                                         config.dutyRGB[i] * config.Beta[i] *
                                                         config.Number[i] * config.CPL * config.Efficiency[i] * config.CFL[
                                                             i]) / (config.PixelSize * 10 ** (-6)) ** 2
-                    for j in range(100):
-                        cell_value = config.opticals[i][j, 3]
-                        next_cell_value = config.opticals[i][j + 1, 3]
-                        next = j
-                        if (cell_value == panel_Nits[i]):
-                            cal_yield = config.opticals[i][j, 2]
-                            cal_current = config.opticals[i][j, 1]
-                            cal_voltage = config.opticals[i][j, 0]
-                        elif (cell_value < panel_Nits[i] < next_cell_value):
-                            x1 = config.opticals[i][j, 2]
-                            x2 = config.opticals[i][j + 1, 2]
-                            cal_yield = x1 + (x2 - x1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                            y1 = config.opticals[i][j, 1]
-                            y2 = config.opticals[i][j + 1, 1]
-                            cal_current = y1 + (y2 - y1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                            z1 = config.opticals[i][j, 0]
-                            z2 = config.opticals[i][j + 1, 0]
-                            cal_voltage = z1 + (z2 - z1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                            break
-                        elif panel_Nits[i] > np.max(config.opticals[i][:, 3]):
-                            print("~~~~error：電流計算結果超過 Optical Data 範圍~~~")
-                            sys.exit()
 
-                    config.opticals[i][next + 2:, :] = config.opticals[i][next + 1:-1, :]  # 全部下移
-                    config.opticals[i][next + 1, 0] = cal_voltage
-                    config.opticals[i][next + 1, 1] = cal_current
-                    config.opticals[i][next + 1, 2] = cal_yield
-                    config.opticals[i][next + 1, 3] = panel_Nits[i]
+                    # --------------------------------------------
+                    # panel_Nits 內插 voltage current yield
+                    # ---------------------------------------------
+                    cal_yield, cal_current, cal_voltage, next = self.get_middle_data(i, panel_Nits)
+
+                    self.update_3_data(i, cal_yield, cal_current, cal_voltage, panel_Nits, next)
                     # --------------------------------------------
                     # 更新matrix
                     # ---------------------------------------------
                     config.matrix[i, 0] = cal_yield
                     config.matrix[i, 1] = cal_current
                     config.matrix[i, 2] = cal_voltage
-                    # matrix_max_current[i] = float(cal_current)
-                    # if Grayscale == 16: # 每次R要跑一次 G要一次 B要一次 不能縮減
-                    config.matrix_max_table[0, i] = panel_Nits[i]
-                    config.matrix_max_table[1, i] = cal_current
-                    config.matrix_max_table[2, i] = cal_current
-                    config.matrix_max_table[3, i] = cal_yield
-                    config.matrix_max_table[4, i] = cal_voltage
-                    config.matrix_max_table[5, i] = config.dutyRGB[i]
 
             # ------------------------------------
             # 結束迭代 Grayscale那一層最後參數寫入

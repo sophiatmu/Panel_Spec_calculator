@@ -9,7 +9,7 @@ import sys
 # 打开工作簿和工作表
 # wb = load_workbook('D://Muyun//cal_python//X098_v3_0927.xlsx')
 wb = openpyxl.load_workbook('X098_v5.xlsm')
-save_wb = 'D://Muyun//py_2024_panel_spec//X098_v5_0606.xlsx'   #絕對路徑這裡要改掉!!
+save_wb = 'D://Muyun//cal_python//X098_v5_0606.xlsx'
 flag = np.zeros(3)#針對rgb duty>100做處理 平常為0
 
 def save_workbook():
@@ -48,7 +48,6 @@ def main_calculate_flow():
         # 尋找voltage
         # 原始matrixCIE位址
         # ----------------------------------------------------------
-
         calculator.get_matrixCIE_ratio()
 
         config.MatrixRGB = np.linalg.inv(config.MatrixRGB)  # 從這個Matrix 開始有些數值會不一樣
@@ -87,7 +86,6 @@ def main_calculate_flow():
         panel_current = panel_current + config.dutyRGB[i] * config.Number[i] * config.Beta[i] * \
                         config.matrix[i, 1]
 
-        print(panel_current)
     panel_current = panel_current / 1000000 * config.VResolution * config.HResolution
     if config.PanelShape == "Circle":
         panel_current = panel_current * 3.1415926 / 4
@@ -127,55 +125,24 @@ def main_calculate_flow():
                 # 算opticals 中的每個current,yield,voltage對應的各種panelNits 怕超出格子所以用110格
                 # ---------------------------------
                 if Iteration == 0:
-                    #-----------------------------------------------
                     #opticals只有第一次要重算
-                    #-----------------------------------------------
                     for j in range(110):
                         config.opticals[i][j, 3] = (config.opticals[i][j, 1] * 10 ** (-6) * config.opticals[i][j, 2] * config.dutyRGB[i] * config.Beta[i] *
                                              config.Number[i] * config.CPL * config.Efficiency[i] * config.CFL[i]) / (config.PixelSize * 10 ** (-6)) ** 2
-                for j in range(100):
-                    cell_value = config.opticals[i][j, 3]
-                    next_cell_value = config.opticals[i][j + 1, 3]
-                    next = j
-                    # print(np.max(config.opticals[i][:, 3]))
-                    if (cell_value == panel_Nits[i]):
-                        cal_yield = config.opticals[i][j, 2]
-                        cal_current = config.opticals[i][j, 1]
-                        cal_voltage = config.opticals[i][j, 0]
-                    elif (cell_value < panel_Nits[i] < next_cell_value):# 如果跟表格的值一樣 這裡沒寫到
-                        x1 = config.opticals[i][j, 2]
-                        x2 = config.opticals[i][j + 1, 2]
-                        cal_yield = x1 + (x2 - x1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                        y1 = config.opticals[i][j, 1]
-                        y2 = config.opticals[i][j + 1, 1]
-                        cal_current = y1 + (y2 - y1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                        z1 = config.opticals[i][j, 0]
-                        z2 = config.opticals[i][j + 1, 0]
-                        cal_voltage = z1 + (z2 - z1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
-                        break
-                    elif panel_Nits[i] > np.max(config.opticals[i][:, 3]):
-                        print("~~~~error：電流計算結果超過 Optical Data 範圍~~~")
-                        sys.exit()
 
-                config.opticals[i][next + 2:, :] = config.opticals[i][next + 1:-1, :]  # 全部下移
-                config.opticals[i][next + 1, 0] = cal_voltage
-                config.opticals[i][next + 1, 1] = cal_current
-                config.opticals[i][next + 1, 2] = cal_yield
-                config.opticals[i][next + 1, 3] = panel_Nits[i]
-                #--------------------------------------------
+                # --------------------------------------------
+                # panel_Nits 內插 voltage current yield
+                # ---------------------------------------------
+                cal_yield, cal_current, cal_voltage, next = calculator.get_middle_data(i, panel_Nits)
+
+                calculator.update_3_data(i, cal_yield, cal_current, cal_voltage, panel_Nits, next)
+                # --------------------------------------------
                 # 更新matrix
-                #---------------------------------------------
+                # ---------------------------------------------
                 config.matrix[i, 0] = cal_yield
                 config.matrix[i, 1] = cal_current
                 config.matrix[i, 2] = cal_voltage
-                # matrix_max_current[i] = float(cal_current)
-                # if Grayscale == 16: # 每次R要跑一次 G要一次 B要一次 不能縮減
-                config.matrix_max_table[0, i] = panel_Nits[i]
-                config.matrix_max_table[1, i] = cal_current
-                config.matrix_max_table[2, i] = cal_current
-                config.matrix_max_table[3, i] = cal_yield
-                config.matrix_max_table[4, i] = cal_voltage
-                config.matrix_max_table[5, i] = config.dutyRGB[i]
+
 
         # ------------------------------------
         # 結束迭代 Grayscale那一層最後參數寫入
@@ -188,7 +155,7 @@ def main_calculate_flow():
         print(Grayscale)
 
 
-    # # 保存工作簿
+    # 保存工作簿
     # wb.save('D://Muyun//cal_python//X098_v5_0606.xlsx')
     save_workbook()
 
