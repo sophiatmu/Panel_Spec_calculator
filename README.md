@@ -15,13 +15,16 @@ save_wb = 'D://Muyun//cal_python//X098_v5_0606.xlsx'  # 要存的地方跟另存
 ```
 
 ## Read_optical.py
-用來寫入Optical資料
+
+用來寫入Optical資料，這個資料夾只能有各1份RGB的optical資料
+
+### 檔案中的路徑修改
 ```
-wb = openpyxl.load_workbook('X098_v4.xlsm')  # 需要存放資料到哪個excel表格
+wb = openpyxl.load_workbook('X098_v4.xlsm')  # 需要將RGB的optical資料存放到哪個excel表格
 ```
 
 找到目錄中所有後綴為 '_R_Optical.xlsx'、'_G_Optical.xlsx、 '_B_Optical.xlsx' 的檔案
-因此這個目錄只能有各1份RGB的optical資料
+這裡不需要更動
 ```
 R_files = [filename for filename in os.listdir(directory) if filename.endswith('_R_Optical.xlsx')]
 G_files = [filename for filename in os.listdir(directory) if filename.endswith('_G_Optical.xlsx')]
