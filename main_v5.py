@@ -8,9 +8,7 @@ import sys
 # 模組化減少系統程式
 # 打开工作簿和工作表
 # wb = load_workbook('D://Muyun//cal_python//X098_v3_0927.xlsx')
-wb = openpyxl.load_workbook('X098_v5.xlsm')
-save_wb = 'D://Muyun//cal_python//X098_v5_0619.xlsx'
-flag = np.zeros(3)#針對rgb duty>100做處理 平常為0
+
 
 def save_workbook():
     workbook = config.workbook
@@ -74,6 +72,7 @@ def main_calculate_flow():
         if 1 in flag:
             config.home_sheet.cell(row=2, column=4).value = "Lighting Duty (%)" #設為非Lighting duty
             calculator.overduty(panel_Nits,config.dutyRGB,flag,save_wb)#整個架構重算 因為要一直迭代
+            input("Press Enter to exit...")
             sys.exit()
 
     else:
@@ -161,4 +160,10 @@ def main_calculate_flow():
     save_workbook()
 
 if __name__=='__main__':
-	main_calculate_flow()
+    wb = openpyxl.load_workbook('main_excel.xlsm')
+    name = input("Enter saving file name whihout '.xlsx' : ")
+    save_wb = str(name)+'.xlsx'
+    print(save_wb)
+    flag = np.zeros(3)  # 針對rgb duty>100做處理 平常為0
+    main_calculate_flow()
+    input("Press Enter to exit...")

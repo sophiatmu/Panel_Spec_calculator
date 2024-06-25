@@ -2,12 +2,8 @@ import os
 import openpyxl
 import numpy as np
 
-wb = openpyxl.load_workbook('X098_v4.xlsm')
-OpticalData_sheet = wb['OpticalData']
-R_spectrum = wb['RSpectrum']
-G_spectrum = wb['GSpectrum']
-B_spectrum = wb['BSpectrum']
-CIE_sheet = wb['CIE1931']
+
+
 
 def find_optical_files(directory):
     # 找到目錄中所有後綴為 '_B_Optical.xlsx' 的檔案
@@ -131,8 +127,21 @@ def main():
         OpticalData_sheet.cell(row=voltagerow_B+i-1, column=15).font = B_font
 
     # 保存 summary.xlsx
-    wb.save('X098_v4_0613.xlsx')
+    wb.save(save_wb) # X098_v4_0613.xlsx
 
 
 if __name__ == "__main__":
+    wb = openpyxl.load_workbook('main_excel.xlsm')
+
+    name = input("Enter saving file name whihout '.xlsx' : ")
+    save_wb = str(name)+'.xlsx'
+    print(save_wb)
+
+    OpticalData_sheet = wb['OpticalData']
+    R_spectrum = wb['RSpectrum']
+    G_spectrum = wb['GSpectrum']
+    B_spectrum = wb['BSpectrum']
+    CIE_sheet = wb['CIE1931']
+
     main()
+    input("Press Enter to exit...")

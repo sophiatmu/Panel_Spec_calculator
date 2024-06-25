@@ -186,7 +186,7 @@ class MaxCurrentMaxYieldCalculator:
                 cal_voltage = z1 + (z2 - z1) * (panel_Nits[i] - cell_value) / (next_cell_value - cell_value)
                 break
             elif panel_Nits[i] > np.max(config.opticals[i][:, 3]):
-                print("~~~~error：電流計算結果超過 Optical Data 範圍~~~")
+                input("~~~~error：電流計算結果超過 Optical Data 範圍~~~")
                 sys.exit()
 
         return cal_yield,cal_current,cal_voltage,next
